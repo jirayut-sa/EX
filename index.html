@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>คลังลิงก์ส่วนตัว</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Sarabun', sans-serif; }
+        .loader { border-top-color: #991b1b; -webkit-animation: spinner 1.5s linear infinite; animation: spinner 1.5s linear infinite; }
+        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-4xl mx-auto">
+        <!-- Header -->
+        <header class="bg-[#800000] text-white p-6 rounded-2xl shadow-lg mb-8 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold"><i class="fas fa-link mr-2"></i> ระบบจัดการลิงก์</h1>
+                <p class="text-gray-200 text-sm mt-1">รวบรวมเว็บไซต์สำคัญ เปิดใช้งานได้จากทุกอุปกรณ์</p>
+            </div>
+        </header>
+
+        <!-- Form Add Link -->
+        <div class="bg-white p-6 rounded-2xl shadow-md mb-8 border-t-4 border-[#800000]">
+            <h2 class="text-lg font-semibold text-gray-800 mb-4"><i class="fas fa-plus-circle text-[#800000] mr-2"></i>เพิ่มลิงก์ใหม่</h2>
+            <form id="addLinkForm" class="flex flex-col md:flex-row gap-4">
+                <input type="text" id="linkName" required placeholder="ชื่อเว็บไซต์ / รายละเอียด" 
+                    class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#800000] focus:border-transparent">
+                <input type="url" id="linkUrl" required placeholder="https://..." 
+                    class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#800000] focus:border-transparent">
+                <button type="submit" id="submitBtn" 
+                    class="bg-[#800000] hover:bg-red-900 text-white px-6 py-2 rounded-lg font-medium transition-colors duration-200 flex items-center justify-center min-w-[120px]">
+                    <span>บันทึก</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading" class="flex justify-center items-center py-12 hidden">
+            <div class="loader ease-linear rounded-full border-4 border-gray-200 h-12 w-12 mb-4"></div>
+        </div>
+
+        <!-- Links Grid -->
+        <div id="linksContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <!-- ข้อมูลลิงก์จะถูกดึงมาแสดงที่นี่ -->
+        </div>
+    </div>
+
+    <script>
+        // URL ของ Google Apps Script ของคุณ
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwxbvfjq-aavduBQlaWxwEkVyBeDqD3oIog5KiIwyXzekBmM6S-tRbyHc4-6whjrAHk/exec';
+
+        const linksContainer = document.getElementById('linksContainer');
+        const addLinkForm = document.getElementById('addLinkForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const loading = document.getElementById('loading');
+
+        // ฟังก์ชันดึงข้อมูลลิงก์
+        async function fetchLinks() {
+            loading.classList.remove('hidden');
+            linksContainer.innerHTML = '';
+            
+            try {
+                const response = await fetch(SCRIPT_URL);
+                const links = await response.json();
+                
+                linksContainer.innerHTML = links.map(link => `
+                    <a href="${link.url}" target="_blank" rel="noopener noreferrer" 
+                       class="group bg-white p-5 rounded-2xl shadow-sm border border-gray-200 hover:shadow-md hover:border-[#800000] transition-all duration-300 flex items-center justify-between">
+                        <div class="overflow-hidden">
+                            <h3 class="font-semibold text-gray-800 group-hover:text-[#800000] truncate">${link.name}</h3>
+                            <p class="text-sm text-gray-500 truncate mt-1">${link.url}</p>
+                        </div>
+                        <div class="text-gray-300 group-hover:text-[#800000] ml-3 transition-colors">
+                            <i class="fas fa-external-link-alt"></i>
+                        </div>
+                    </a>
+                `).join('');
+            } catch (error) {
+                console.error('Error fetching links:', error);
+                linksContainer.innerHTML = '<p class="text-red-500 col-span-full text-center">เกิดข้อผิดพลาดในการดึงข้อมูล</p>';
+            } finally {
+                loading.classList.add('hidden');
+            }
+        }
+
+        // ฟังก์ชันเพิ่มลิงก์
+        addLinkForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const name = document.getElementById('linkName').value;
+            const url = document.getElementById('linkUrl').value;
+            
+            const originalBtnText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            submitBtn.disabled = true;
+
+            try {
+                await fetch(SCRIPT_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ name, url }),
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8', 
+                    }
+                });
+                
+                addLinkForm.reset();
+                fetchLinks();
+            } catch (error) {
+                console.error('Error saving link:', error);
+                alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+            } finally {
+                submitBtn.innerHTML = originalBtnText;
+                submitBtn.disabled = false;
+            }
+        });
+
+        // โหลดข้อมูลครั้งแรกเมื่อเปิดหน้าเว็บ
+        fetchLinks();
+    </script>
+</body>
+</html>
